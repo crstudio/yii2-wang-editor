@@ -29,6 +29,21 @@ class WangEditorWidget extends InputWidget
      * @var false|array
      */
     public $uploadImageServer = ['/file/wang-editor'];
+    /**
+     * 编辑器默认高度
+     * @var string
+     */
+    public $height = '300px';
+    /**
+     * 显示的菜单
+     * @var array
+     */
+    public $menus = [];
+    /**
+     * 需要隐藏的菜单
+     * @var array
+     */
+    public $hideMenus = [];
 
     /**
      * @var string
@@ -38,11 +53,24 @@ class WangEditorWidget extends InputWidget
      * @var string
      */
     private $editorObj;
+    /**
+     * @var string
+     */
+    private $toolbarId;
+    /**
+     * @var string
+     */
+    private $content;
+    /**
+     * @var string
+     */
+    private $inputId;
 
     public function init()
     {
         parent::init();
         $this->editorId = 'editor-' . $this->id;
+        $this->toolbarId = 'editor-toolbar-' . $this->id;
         $this->editorObj = $this->id . 'Editor';
         if ($this->uploadImageServer !== false) {
             $this->uploadImageServer = Url::to($this->uploadImageServer);
@@ -54,12 +82,16 @@ class WangEditorWidget extends InputWidget
         $html = [];
         if ($this->hasModel()) {
             $html[] = Html::activeHiddenInput($this->model, $this->attribute, $this->options);
-            $content = Html::getAttributeValue($this->model, $this->attribute);
+            $this->content = Html::getAttributeValue($this->model, $this->attribute);
+            $this->inputId = Html::getInputId($this->model, $this->attribute);
         } else {
+            if(empty($this->options['id']))
+                $this->options['id'] = $this->name . uniqid();
+            $this->inputId = $this->options['id'];
             $html[] = Html::hiddenInput($this->name, $this->value, $this->options);
-            $content = $this->value;
+            $this->content = $this->value;
         }
-        $html[] = $this->renderHtml($content);
+        $html[] = $this->renderHtml($this->content);
 
         $this->registerAssets();
 
@@ -74,13 +106,14 @@ class WangEditorWidget extends InputWidget
             FullScreenAsset::register($view);
         }
 
-        $js[] = "var {$this->editorObj} = new window.wangEditor('#{$this->editorId}');";
+        $js[] = "var {$this->editorObj} = new window.wangEditor('#{$this->toolbarId}', '#{$this->editorId}');";
         $customConfig = array_merge($this->getDefaultCustomConfig(), $this->customConfig);
         if ($customConfig) {
             $customConfig = Json::htmlEncode($customConfig);
             $js[] = "{$this->editorObj}.customConfig = {$customConfig}";
         }
         $js[] = "{$this->editorObj}.create();";
+        $js[] = "{$this->editorObj}.txt.html('{$this->content}');";
         if ($this->canFullScreen) {
             $js[] = "window.wangEditor.fullscreen.init('#{$this->editorId}');";
         }
@@ -116,6 +149,15 @@ class WangEditorWidget extends InputWidget
             //'uploadImgMaxSize' => 5242880, // 5M
             //'uploadImgMaxLength' => 10,
         ];
+
+        if(!empty($this->menus)){
+            $config['menus'] = $this->menus;
+        }
+
+        if(!empty($this->hideMenus)){
+            $config['menus'] = array_values(array_diff($config['menus'], $this->hideMenus));
+        }
+
         if ($this->uploadImageServer) {
             $config['uploadImgServer'] = $this->uploadImageServer;
             $config['uploadFileName'] = 'filename[]';
@@ -128,6 +170,8 @@ class WangEditorWidget extends InputWidget
 
     protected function renderHtml($content)
     {
-        return Html::tag('div', $content, ['id' => $this->editorId]);
+        return Html::tag('div', '', ['id' => $this->toolbarId, 'style' => 'border:1px solid #ced4da;'])
+            .Html::tag('div', '', ['id' => $this->editorId, 'style' => 'border:1px solid #ced4da;height:'.$this->height]);
     }
 }
+
